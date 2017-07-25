@@ -6,7 +6,6 @@ Created on 2017/07/23
 import cv2
 import numpy as np
 import sys
-import time
 from numba import jit
 
 
@@ -49,6 +48,7 @@ def reverse(binaryImg):
 
 @jit
 def posterize(img, pos):
+    # 二次元配列にのみ対応
     r = np.zeros(img.shape, np.uint8)
     if pos == 1:
         # もし１が入ってきたら、普通の処理では０で割る動作があるので例外的に処理
@@ -97,12 +97,13 @@ if __name__ == "__main__":
     print("読み込む画像名 NewImageフォルダ内")
     inputImg = input(">>> ")
 
+    # inputされた名前のpngかjpg画像を読み込む
     img = cv2.imread("NewImages/" + inputImg + ".png")
     if img is None:
         img = cv2.imread("NewImages/" + inputImg + ".jpg")
         if img is None:
             print("認識できません。")
-            sys.exit()
+            sys.exit()  # 画像が見つからなかったのでプログラムを終了する
 
     print("モノクロにしますか？(y/n)")
     mono = input(">>> ")
@@ -127,6 +128,7 @@ if __name__ == "__main__":
         # Canny法で求めた線の白黒を反転させる
         ReverseCannyGaussGrayImg = reverse(CannyGaussGrayImg)
 
+        # 線を太くしないときに使う線画像
         sen = ReverseCannyGaussGrayImg
 
         print("線を太くしますか？ (y/n)")
@@ -141,20 +143,19 @@ if __name__ == "__main__":
                               [1, 1, 1],
                               [1, 1, 1]],
                              np.uint8)
+            # 8近傍膨張処理を行う
             ErosionReverseCannyGaussGrayImg = cv2.erode(ReverseCannyGaussGrayImg, near8, iterations=1)
+            # senを太くした線画像に書き換える
             sen = ErosionReverseCannyGaussGrayImg
 
-        print("ポスタライズ階調を入力 n<10推奨")
+        print("ポスタライズ階調を入力 n<20推奨")
         p = input(">>> ")
-        pos = int(p)
+        pos = int(p)  # pはStringなのでintにする
 
-        start = time.time()
-
+        # ポスタライズを行う　対象画像、階調指定
         PosterizeImg = posterize(GaussGrayImg, pos)
 
-        endTime = time.time() - start
-        print("Posterize time:" + format(endTime) + "[sec]")
-
+        # ポスタライズした画像と線画像を重ねる
         result = masked(PosterizeImg, sen)
 
         # 名は体を表すファイル名をつける
@@ -174,7 +175,7 @@ if __name__ == "__main__":
 
         # Canny法で求めた線の白黒を反転させる
         ReverseCannyGaussImg = reverse(CannyGaussImg)
-
+        # 線を太くしないときに使う線画像
         sen = ReverseCannyGaussImg
 
         print("線を太くしますか？ (y/n)")
@@ -189,30 +190,34 @@ if __name__ == "__main__":
                               [1, 1, 1],
                               [1, 1, 1]],
                              np.uint8)
+            # 8近傍膨張処理を行う
             ErosionReverseCannyGaussGrayImg = cv2.erode(ReverseCannyGaussImg, near8, iterations=1)
+            # senを太くした線画像に書き換える
             sen = ErosionReverseCannyGaussGrayImg
 
         print("ポスタライズ階調を入力 n<10推奨")
         p = input(">>> ")
-        pos = int(p)
+        pos = int(p)  # pはStringなのでintにする
 
-        start = time.time()
-
+        # Posterize関数は2次元配列しか受け付けない
+        # 3次元配列imgを3つの2次元配列に分ける
+        # つまり、BGRごとの画像を作る
         imgB = img[:, :, 0]
         imgG = img[:, :, 1]
         imgR = img[:, :, 2]
 
+        # 分解した3次元配列imgをそれぞれポスタライズしていく
         PosterizeImgB = posterize(imgB, pos)
         PosterizeImgG = posterize(imgG, pos)
         PosterizeImgR = posterize(imgR, pos)
 
+        # 分解してポスタライズしたので3次元配列に戻す
         PosterizeImg = np.copy(img)
         PosterizeImg[:, :, 0] = PosterizeImgB[:, :]
         PosterizeImg[:, :, 1] = PosterizeImgG[:, :]
         PosterizeImg[:, :, 2] = PosterizeImgR[:, :]
-        endTime = time.time() - start
-        print("Posterize time:" + format(endTime) + "[sec]")
-
+        
+        # ポスタライズした画像と線画像を重ねる
         result = masked(PosterizeImg, sen)
 
         # 名は体を表すファイル名をつける
