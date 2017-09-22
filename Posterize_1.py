@@ -1,5 +1,5 @@
 '''
-Created on 2017/07/23
+Created on 2017/09/23
 
 @author: nekoze1004
 '''
@@ -11,7 +11,7 @@ from numba import jit
 
 # 引数の文字列はYesか
 def IsYes(yn):
-    if ((yn == "y") | (yn == "Y") | (yn == "yes") | (yn == "Yes") | (yn == "YES")):
+    if (yn == "y") | (yn == "Y") | (yn == "yes") | (yn == "Yes") | (yn == "YES"):
         return True
     else:
         return False
@@ -19,7 +19,7 @@ def IsYes(yn):
 
 # 引数の文字列はNoか
 def IsNo(yn):
-    if ((yn == "n") | (yn == "N") | (yn == "no") | (yn == "No") | (yn == "NO")):
+    if (yn == "n") | (yn == "N") | (yn == "no") | (yn == "No") | (yn == "NO"):
         return True
     else:
         return False
@@ -27,7 +27,7 @@ def IsNo(yn):
 
 # 引数はYesでもNoでもないか
 def IsNotYN(yn):
-    if (IsYes(yn) | IsNo(yn)):
+    if IsYes(yn) | IsNo(yn):
         return False
     else:
         return True
@@ -35,11 +35,11 @@ def IsNotYN(yn):
 
 # 二値画像の色を反転させる
 @jit
-def reverse(binaryImg):
-    copyImg = np.copy(binaryImg)
-    for i in range(binaryImg.shape[0]):
-        for j in range(binaryImg.shape[1]):
-            if binaryImg[i, j] == 0:
+def reverse(img):
+    copyImg = np.copy(img)
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            if img[i, j] == 0:
                 copyImg[i, j] = 255
             else:
                 copyImg[i, j] = 0
@@ -48,37 +48,54 @@ def reverse(binaryImg):
 
 @jit
 def posterize(img, pos):
-    # 二次元配列にのみ対応
-    r = np.zeros(img.shape, np.uint8)
-    if pos == 1:
-        # もし１が入ってきたら、普通の処理では０で割る動作があるので例外的に処理
-        for i in range(img.shape[0]):
-            for j in range(img.shape[1]):
-                if img[i, j] <= 127:
-                    r[i, j] = 0
-                else:
-                    r[i, j] = 255
-    elif pos >= 256:
-        # もし256以上が入ってきたら、画像をそっくりそのまま返す
-        for i in range(img.shape[0]):
-            for j in range(img.shape[1]):
-                r[i, j] = img[i, j]
-    else:
-        # 2~255までを想定
-        # 読み込んだ元画像の全画素を巡回して、閾値と比べて当てはまる階級の値を
-        # 書き出し先の同じ場所の画素に入れていく
-        for i in range(img.shape[0]):
-            for j in range(img.shape[1]):
-                for p in range(0, pos):
-                    # pos=3のとき、0-85,86-170,171-255で分けられる
-                    # それぞれ0,127,255が入れられる
-                    if (img[i, j] >= ((255 // pos) * p) + 1) & (img[i, j] <= (255 // pos) * (p + 1)):
-                        r[i, j] = (255 // (pos - 1)) * p
-                        if p + 1 == pos:
-                            # 255//posが本来２５５ぴったしになるといいが、現実は非常なので、２５５になるべき者たちが２５５になれるようにしている（謎の言い回し）
-                            if (img[i, j] >= (255 // pos) * (p + 1)) & (img[i, j] <= 255):
-                                r[i, j] = 255
-    return r
+    if img.ndim == 2:  # モノクロ画像(二次元配列)のとき
+        GaryResult = np.zeros(img.shape, np.uint8)  # モノクロ画像返り値用配列
+
+        if pos == 1:
+            # もし1が入ってきたら、普通の処理では0で割る動作があるので例外的に処理
+            for i in range(img.shape[0]):
+                for j in range(img.shape[1]):
+                    if img[i, j] <= 127:
+                        GaryResult[i, j] = 0
+                    else:
+                        GaryResult[i, j] = 255
+        elif pos >= 256:
+            # もし256以上が入ってきたら、画像をそっくりそのまま返す
+            return GaryResult
+        else:
+            # 2~255までを想定
+            # 読み込んだ元画像の全画素を巡回して、閾値と比べて当てはまる階級の値を
+            # 書き出し先の同じ場所の画素に入れていく
+            for i in range(img.shape[0]):
+                for j in range(img.shape[1]):
+                    for p in range(0, pos):
+                        # pos=3のとき、0-85,86-170,171-255で分けられる
+                        # それぞれ0,127,255が入れられる
+                        if (img[i, j] >= ((255 // pos) * p) + 1) & (img[i, j] <= (255 // pos) * (p + 1)):
+                            GaryResult[i, j] = (255 // (pos - 1)) * p
+                            if p + 1 == pos:
+                                # 255//posが本来255ぴったりになるべき者たちが255になれるようにしている（謎の言い回し）
+                                if (img[i, j] >= (255 // pos) * (p + 1)) & (img[i, j] <= 255):
+                                    GaryResult[i, j] = 255
+        return GaryResult
+    elif img.ndim == 3:
+        ColorResult = np.zeros(img.shape, np.uint8)
+        # カラー画像(三次元配列)のとき
+        # 三次元配列を分解して二次元配列にする
+        B = img[:, :, 0]
+        G = img[:, :, 1]
+        R = img[:, :, 2]
+
+        # それぞれの二次元配列をポスタライズする
+        PB = posterize(B, pos)
+        PG = posterize(G, pos)
+        PR = posterize(R, pos)
+        # 上記3つの2次元配列を3次元配列にして返す
+        ColorResult[:, :, 0] = PB[:, :]
+        ColorResult[:, :, 1] = PG[:, :]
+        ColorResult[:, :, 2] = PR[:, :]
+
+        return ColorResult
 
 
 @jit
@@ -199,24 +216,9 @@ if __name__ == "__main__":
         p = input(">>> ")
         pos = int(p)  # pはStringなのでintにする
 
-        # Posterize関数は2次元配列しか受け付けない
-        # 3次元配列imgを3つの2次元配列に分ける
-        # つまり、BGRごとの画像を作る
-        imgB = img[:, :, 0]
-        imgG = img[:, :, 1]
-        imgR = img[:, :, 2]
+        # ポスタライズを行う　対象画像、階調指定
+        PosterizeImg = posterize(GaussImg, pos)
 
-        # 分解した3次元配列imgをそれぞれポスタライズしていく
-        PosterizeImgB = posterize(imgB, pos)
-        PosterizeImgG = posterize(imgG, pos)
-        PosterizeImgR = posterize(imgR, pos)
-
-        # 分解してポスタライズしたので3次元配列に戻す
-        PosterizeImg = np.copy(img)
-        PosterizeImg[:, :, 0] = PosterizeImgB[:, :]
-        PosterizeImg[:, :, 1] = PosterizeImgG[:, :]
-        PosterizeImg[:, :, 2] = PosterizeImgR[:, :]
-        
         # ポスタライズした画像と線画像を重ねる
         result = masked(PosterizeImg, sen)
 
