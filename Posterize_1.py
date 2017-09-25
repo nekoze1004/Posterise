@@ -121,9 +121,8 @@ def masked(base, mask):
     return r
 
 
-if __name__ == "__main__":
-
-    print("ポスタライズします\n")
+# 画像を読み込む　pngとjpgに対応している
+def ReadImg():
     print("読み込む画像名 NewImageフォルダ内")
     inputImg = input(">>> ")
 
@@ -134,7 +133,11 @@ if __name__ == "__main__":
         if img is None:
             print("認識できません。")
             sys.exit()  # 画像が見つからなかったのでプログラムを終了する
+    return (img, inputImg)
 
+
+# モノクロにするか聞く
+def doMono():
     print("モノクロにしますか？(y/n)")
     mono = input(">>> ")
     while IsNotYN(mono):
@@ -143,6 +146,60 @@ if __name__ == "__main__":
         mono = input(">>> ")
 
     if IsYes(mono):
+        return True
+    if IsNo(mono):
+        return False
+
+
+# 線画像を求める
+def MakeLine(img, sita=50, ue=100):
+    # Canny法を用いて輪郭を検出する
+    CannyImg = cv2.Canny(img, sita, ue)
+
+    # Canny法で求めた線の白黒を反転させる
+    ReverseCannyImg = reverse(CannyImg)
+
+    # 線を太くしないときに使う線画像
+    sen = ReverseCannyImg
+
+    print("線を太くしますか？ (y/n)")
+    hutoi = input(">>> ")
+    while IsNotYN(hutoi):
+        print("yかnを入力してください。")
+        print("線を太くしますか？(y/n)")
+        hutoi = input(">>> ")
+
+    if IsYes(hutoi):  # 線を太くする際の処理
+        near8 = np.array([[1, 1, 1],
+                          [1, 1, 1],
+                          [1, 1, 1]],
+                         np.uint8)
+        # 8近傍膨張処理を行う
+        ErosionReverseCannyImg = cv2.erode(ReverseCannyImg, near8, iterations=1)
+        # senを太くした線画像に書き換える
+        sen = ErosionReverseCannyImg
+    return sen
+
+
+# 名前をつけて画像を保存する
+def NamedFile(inputName, resultImg, CorG=0):  # CorG==0ならカラー、1ならグレー
+    if CorG == 0:
+        fName = inputName + "ColorPosterize.png"
+    else:
+        fName = inputName + "GrayPosterize.png"
+
+    cv2.imshow("results " + fName, resultImg)  # ポスタライズの結果を表示する
+    cv2.imwrite(fName, resultImg)  # ポスタライズの結果を保存する
+    cv2.waitKey(0)  # なにかキーを押すと↓
+    cv2.destroyAllWindows()  # 表示ウインドウが閉じる
+
+
+if __name__ == "__main__":
+
+    print("ポスタライズします\n")
+    img, inputName = ReadImg()
+
+    if doMono():
         print("モノクロでポスタライズします。")
         # imgをグレースケール化
         GrayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -150,33 +207,7 @@ if __name__ == "__main__":
         # 画像下処理　ぼかし
         GaussGrayImg = cv2.GaussianBlur(GrayImg, (5, 5), 0)
 
-        # Canny法を用いて輪郭を検出する
-        sita = 50
-        ue = 100
-        CannyGaussGrayImg = cv2.Canny(GaussGrayImg, int(sita), int(ue))
-
-        # Canny法で求めた線の白黒を反転させる
-        ReverseCannyGaussGrayImg = reverse(CannyGaussGrayImg)
-
-        # 線を太くしないときに使う線画像
-        sen = ReverseCannyGaussGrayImg
-
-        print("線を太くしますか？ (y/n)")
-        hutoi = input(">>> ")
-        while IsNotYN(hutoi):
-            print("yかnを入力してください。")
-            print("線を太くしますか？(y/n)")
-            mono = input(">>> ")
-
-        if IsYes(hutoi):
-            near8 = np.array([[1, 1, 1],
-                              [1, 1, 1],
-                              [1, 1, 1]],
-                             np.uint8)
-            # 8近傍膨張処理を行う
-            ErosionReverseCannyGaussGrayImg = cv2.erode(ReverseCannyGaussGrayImg, near8, iterations=1)
-            # senを太くした線画像に書き換える
-            sen = ErosionReverseCannyGaussGrayImg
+        sen = MakeLine(GaussGrayImg)
 
         print("ポスタライズ階調を入力 n<20推奨")
         p = input(">>> ")
@@ -188,44 +219,19 @@ if __name__ == "__main__":
         # ポスタライズした画像と線画像を重ねる
         result = masked(PosterizeImg, sen)
 
-        # 名は体を表すファイル名をつける
-        fName = inputImg + "GrayPosterize.png"
-        cv2.imshow("results " + fName, result)  # ポスタライズの結果を表示する
-        cv2.imwrite(fName, result)  # ポスタライズの結果を保存する
-        cv2.waitKey(0)  # なにかキーを押すと↓
-        cv2.destroyAllWindows()  # 表示ウインドウが閉じる
+        # 画像を保存する
+        NamedFile(inputName, result, 1)
+
+        print("終了します")
+        sys.exit()
     else:
+        print("カラーでポスタライズします。")
         # 画像下処理　ぼかし
         GaussImg = cv2.GaussianBlur(img, (5, 5), 0)
 
-        # Canny法を用いて輪郭を検出する
-        sita = 50
-        ue = 100
-        CannyGaussImg = cv2.Canny(GaussImg, int(sita), int(ue))
+        sen = MakeLine(GaussImg)
 
-        # Canny法で求めた線の白黒を反転させる
-        ReverseCannyGaussImg = reverse(CannyGaussImg)
-        # 線を太くしないときに使う線画像
-        sen = ReverseCannyGaussImg
-
-        print("線を太くしますか？ (y/n)")
-        hutoi = input(">>> ")
-        while IsNotYN(hutoi):
-            print("yかnを入力してください。")
-            print("線を太くしますか？(y/n)")
-            mono = input(">>> ")
-
-        if IsYes(hutoi):
-            near8 = np.array([[1, 1, 1],
-                              [1, 1, 1],
-                              [1, 1, 1]],
-                             np.uint8)
-            # 8近傍膨張処理を行う
-            ErosionReverseCannyGaussGrayImg = cv2.erode(ReverseCannyGaussImg, near8, iterations=1)
-            # senを太くした線画像に書き換える
-            sen = ErosionReverseCannyGaussGrayImg
-
-        print("ポスタライズ階調を入力 n<10推奨")
+        print("ポスタライズ階調を入力 n<20推奨")
         p = input(">>> ")
         pos = int(p)  # pはStringなのでintにする
 
@@ -235,9 +241,8 @@ if __name__ == "__main__":
         # ポスタライズした画像と線画像を重ねる
         result = masked(PosterizeImg, sen)
 
-        # 名は体を表すファイル名をつける
-        fName = inputImg + "Posterize.png"
-        cv2.imshow("results " + fName, result)  # ポスタライズの結果を表示する
-        cv2.imwrite(fName, result)  # ポスタライズの結果を保存する
-        cv2.waitKey(0)  # なにかキーを押すと↓
-        cv2.destroyAllWindows()  # 表示ウインドウが閉じる
+        # 画像を保存する
+        NamedFile(inputName, result, 0)
+
+        print("終了します")
+        sys.exit()
