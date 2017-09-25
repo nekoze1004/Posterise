@@ -33,16 +33,17 @@ def IsNotYN(yn):
         return True
 
 
-# 二値画像の色を反転させる
+# 画像の色を反転させる
 @jit
 def reverse(img):
     copyImg = np.copy(img)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            if img[i, j] == 0:
+            copyImg[i, j] = 255 - img[i, j]
+            """if img[i, j] == 0:
                 copyImg[i, j] = 255
             else:
-                copyImg[i, j] = 0
+                copyImg[i, j] = 0"""
     return copyImg
 
 
@@ -78,26 +79,38 @@ def posterize(img, pos):
                                 if (img[i, j] >= (255 // pos) * (p + 1)) & (img[i, j] <= 255):
                                     GaryResult[i, j] = 255
         return GaryResult
-    elif img.ndim == 3:
-        ColorResult = np.zeros(img.shape, np.uint8)
-        # カラー画像(三次元配列)のとき
+    elif img.ndim == 3:  # カラー画像(三次元配列)のとき
+
         # 三次元配列を分解して二次元配列にする
-        B = img[:, :, 0]
-        G = img[:, :, 1]
-        R = img[:, :, 2]
+        B, G, R = division(img)
 
         # それぞれの二次元配列をポスタライズする
         PB = posterize(B, pos)
         PG = posterize(G, pos)
         PR = posterize(R, pos)
+
         # 上記3つの2次元配列を3次元配列にして返す
-        ColorResult[:, :, 0] = PB[:, :]
-        ColorResult[:, :, 1] = PG[:, :]
-        ColorResult[:, :, 2] = PR[:, :]
-
-        return ColorResult
+        return combination(PB, PG, PR)
 
 
+# カラー画像を3つの二次元配列に分ける
+def division(ColorImg):
+    Bimg = ColorImg[:, :, 0]
+    Gimg = ColorImg[:, :, 1]
+    Rimg = ColorImg[:, :, 2]
+    return (Bimg, Gimg, Rimg)
+
+
+# 3つの二次元配列を結合してカラー画像にする
+def combination(Bimg, Gimg, Rimg):
+    ColorImg = np.zeros((Bimg.shape[0], Bimg.shape[1], 3), np.uint8)
+    ColorImg[:, :, 0] = Bimg[:, :]
+    ColorImg[:, :, 1] = Gimg[:, :]
+    ColorImg[:, :, 2] = Rimg[:, :]
+    return ColorImg
+
+
+#  base画像に、mask画像の黒い部分を上書きする
 @jit
 def masked(base, mask):
     r = np.copy(base)
