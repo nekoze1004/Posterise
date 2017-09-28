@@ -36,7 +36,7 @@ def IsNotYN(yn):
 # 画像の色を反転させる
 @jit
 def reverse(img):
-    copyImg = np.copy(img)
+    copyImg = np.empty(img.shape, np.uint8)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
             copyImg[i, j] = 255 - img[i, j]
@@ -50,7 +50,7 @@ def reverse(img):
 @jit
 def posterize(img, pos):
     if img.ndim == 2:  # モノクロ画像(二次元配列)のとき
-        GaryResult = np.zeros(img.shape, np.uint8)  # モノクロ画像返り値用配列
+        GaryResult = np.empty(img.shape, np.uint8)  # モノクロ画像返り値用配列
 
         if pos == 1:
             # もし1が入ってきたら、普通の処理では0で割る動作があるので例外的に処理
@@ -103,7 +103,7 @@ def division(ColorImg):
 
 # 3つの二次元配列を結合してカラー画像にする
 def combination(Bimg, Gimg, Rimg):
-    ColorImg = np.zeros((Bimg.shape[0], Bimg.shape[1], 3), np.uint8)
+    ColorImg = np.empty((Bimg.shape[0], Bimg.shape[1], 3), np.uint8)
     ColorImg[:, :, 0] = Bimg[:, :]
     ColorImg[:, :, 1] = Gimg[:, :]
     ColorImg[:, :, 2] = Rimg[:, :]
